@@ -16,6 +16,7 @@ import { PoAdvancedFilterComponent } from './po-advanced-filter/po-advanced-filt
 import { PoPageDynamicSearchBaseComponent } from './po-page-dynamic-search-base.component';
 import { PoPageDynamicSearchOptions } from './po-page-dynamic-search-options.interface';
 import { PoPageDynamicOptionsSchema } from '../../services';
+import { PoPageDynamicSearchFilters } from './po-page-dynamic-search-filters.interface';
 
 type UrlOrPoCustomizationFunction = string | (() => PoPageDynamicSearchOptions);
 
@@ -93,6 +94,18 @@ export class PoPageDynamicSearchComponent extends PoPageDynamicSearchBaseCompone
     }
   }
 
+  onChangeFilters(filters: Array<PoPageDynamicSearchFilters>) {
+    const filterObjectWithValue = filters
+      .filter(filter => filter.initValue)
+      .reduce((prev, current) => {
+        return { ...prev, ...{ [current.property]: current.initValue } };
+      }, {});
+
+    if (Object.keys(filterObjectWithValue).length) {
+      this.onAdvancedSearch(filterObjectWithValue);
+    }
+  }
+
   onAction() {
     this.changeDisclaimersEnabled = false;
     this._disclaimerGroup.disclaimers = [
@@ -101,6 +114,10 @@ export class PoPageDynamicSearchComponent extends PoPageDynamicSearchBaseCompone
 
     if (this.quickSearch.observers && this.quickSearch.observers.length > 0) {
       this.quickSearch.emit(this.quickFilter);
+    }
+
+    if (this.keepFilters) {
+      this.filters.forEach(element => delete element.initValue);
     }
 
     this.quickFilter = undefined;
@@ -116,7 +133,29 @@ export class PoPageDynamicSearchComponent extends PoPageDynamicSearchBaseCompone
     this.changeDisclaimersEnabled = false;
     this._disclaimerGroup.disclaimers = this.setDisclaimers(filters);
 
+    if (this.keepFilters) {
+      this.setFilters(filters);
+    }
+
     this.advancedSearch.emit(filters);
+  }
+
+  private setFilters(filters) {
+    const formattedFilters = this.convertToFilters(filters);
+
+    this.filters.forEach(element => {
+      const compatibleObject = formattedFilters.find(item => item.property === element.property);
+
+      if (compatibleObject) {
+        element.initValue = compatibleObject.value;
+      } else {
+        delete element.initValue;
+      }
+    });
+  }
+
+  private convertToFilters(filters) {
+    return Object.entries(filters).map(([property, value]) => ({ property, value }));
   }
 
   private applyDisclaimerLabelValue(field: any, filterValue: any) {
@@ -139,6 +178,21 @@ export class PoPageDynamicSearchComponent extends PoPageDynamicSearchBaseCompone
     return new Date(year, month - 1, day).toLocaleDateString(getBrowserLanguage());
   }
 
+  private formatsFilterValuesToUpdateDisclaimers(filters) {
+    const formattedFilters = filters.reduce(
+      (result, item) => Object.assign(result, { [item.property]: item.value || item.initValue }),
+      {}
+    );
+
+    Object.keys(formattedFilters).forEach(key => {
+      if (!formattedFilters[key]) {
+        delete formattedFilters[key];
+      }
+    });
+
+    return formattedFilters;
+  }
+
   private getFieldByProperty(fields: Array<PoDynamicFormField>, fieldName: string) {
     return fields.find((field: PoDynamicFormField) => field.property === fieldName);
   }
@@ -148,7 +202,7 @@ export class PoPageDynamicSearchComponent extends PoPageDynamicSearchBaseCompone
       return this.formatDate(value);
     }
 
-    if (field.options) {
+    if (field.options && value) {
       return this.applyDisclaimerLabelValue(field, value);
     }
 
@@ -156,7 +210,12 @@ export class PoPageDynamicSearchComponent extends PoPageDynamicSearchBaseCompone
   }
 
   private onChangeDisclaimerGroup(disclaimers) {
-    this.changeDisclaimersEnabled ? this.changeDisclaimers.emit(disclaimers) : (this.changeDisclaimersEnabled = true);
+    if (this.changeDisclaimersEnabled) {
+      this.changeDisclaimers.emit(disclaimers);
+      this.setFilters(this.formatsFilterValuesToUpdateDisclaimers(disclaimers));
+    } else {
+      this.changeDisclaimersEnabled = true;
+    }
   }
 
   private setDisclaimers(filters) {
@@ -189,7 +248,8 @@ export class PoPageDynamicSearchComponent extends PoPageDynamicSearchBaseCompone
       title: this.title,
       actions: this.actions,
       breadcrumb: this.breadcrumb,
-      filters: this.filters
+      filters: this.filters,
+      keepFilters: this.keepFilters
     };
 
     const pageOptionSchema: PoPageDynamicOptionsSchema<PoPageDynamicSearchOptions> = {
@@ -209,6 +269,9 @@ export class PoPageDynamicSearchComponent extends PoPageDynamicSearchBaseCompone
         },
         {
           nameProp: 'title'
+        },
+        {
+          nameProp: 'keepFilters'
         }
       ]
     };

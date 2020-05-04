@@ -126,6 +126,27 @@ describe('PoPageDynamicSearchComponent:', () => {
 
         expect(component['changeDetector'].detectChanges).toHaveBeenCalled();
       });
+
+      it('should update filters value if `keepFilters` is true', () => {
+        component.keepFilters = true;
+        component.filters = [{ property: 'city', initValue: 'Ontario' }];
+
+        const expectedValue = [{ property: 'city' }];
+
+        component.onAction();
+
+        expect(component.filters).toEqual(expectedValue);
+      });
+    });
+
+    it('onChangeFilters: should call `onAdvancedSearch`', () => {
+      const filters = [{ property: 'city', initValue: 'Ontario' }, { property: 'name' }];
+      const filterObjectWithValue = { city: 'Ontario' };
+      spyOn(component, 'onAdvancedSearch');
+
+      component.onChangeFilters(filters);
+
+      expect(component.onAdvancedSearch).toHaveBeenCalledWith(filterObjectWithValue);
     });
 
     it('onAdvancedAction: should call `poAdvancedFilter.open`', () => {
@@ -140,14 +161,82 @@ describe('PoPageDynamicSearchComponent:', () => {
     'advancedSearch.emit' with filters`, () => {
       const filters = [{ property: 'value1' }];
       component['changeDisclaimersEnabled'] = true;
+      component.keepFilters = true;
 
       spyOn(component, <any>'setDisclaimers');
       spyOn(component.advancedSearch, 'emit');
+      spyOn(component, <any>'setFilters');
 
       component.onAdvancedSearch(filters);
 
       expect(component['setDisclaimers']).toHaveBeenCalled();
       expect(component.advancedSearch.emit).toHaveBeenCalledWith(filters);
+      expect(component['setFilters']).toHaveBeenCalled();
+    });
+
+    it(`onAdvancedSearch: should't call 'setFilters' if 'keepFilters' is true`, () => {
+      const filters = [{ property: 'value1' }];
+      component['changeDisclaimersEnabled'] = true;
+      component.keepFilters = false;
+
+      spyOn(component, <any>'setDisclaimers');
+      spyOn(component.advancedSearch, 'emit');
+      spyOn(component, <any>'setFilters');
+
+      component.onAdvancedSearch(filters);
+
+      expect(component['setDisclaimers']).toHaveBeenCalled();
+      expect(component.advancedSearch.emit).toHaveBeenCalledWith(filters);
+      expect(component['setFilters']).not.toHaveBeenCalled();
+    });
+
+    it(`setFilters: should call 'convertToFilters'`, () => {
+      const filters = [{ property: 'value1' }];
+
+      spyOn(component, <any>'convertToFilters');
+
+      component['setFilters'](filters);
+
+      expect(component['convertToFilters']).toHaveBeenCalledWith(filters);
+    });
+
+    it(`setFilters: should update filters value if the objects are compatible`, () => {
+      const filterThatWillBeApplied = { city: 'Ontario' };
+      const formattedFilters = [{ property: 'city', value: 'Ontario' }];
+      const expectedFilters = [{ property: 'city', initValue: 'Ontario' }, { property: 'name' }];
+      component.filters = [
+        { property: 'city', initValue: 'Ontario' },
+        { property: 'name', initValue: 'Name teste' }
+      ];
+      component.keepFilters = true;
+
+      spyOn(component, <any>'convertToFilters').and.returnValue(formattedFilters);
+
+      component['setFilters'](filterThatWillBeApplied);
+
+      expect(component.filters).toEqual(expectedFilters);
+    });
+
+    it(`convertToFilters: should update filters value`, () => {
+      const filterToBeFormatted = { city: 'Ontario' };
+      const expectedFormattedFilters = [{ property: 'city', value: 'Ontario' }];
+
+      const convertedFilters = component['convertToFilters'](filterToBeFormatted);
+
+      expect(convertedFilters).toEqual(expectedFormattedFilters);
+    });
+
+    it(`formatsFilterValuesToUpdateDisclaimers: should formats filter value to update disclaimers`, () => {
+      const filterToBeFormatted = [
+        { property: 'city', initValue: 'Ontario' },
+        { property: 'name', value: 'teste' },
+        { property: 'test' }
+      ];
+      const expectedFormattedFilters = { city: 'Ontario', name: 'teste' };
+
+      const convertedFilters = component['formatsFilterValuesToUpdateDisclaimers'](filterToBeFormatted);
+
+      expect(convertedFilters).toEqual(expectedFormattedFilters);
     });
 
     it(`formatDate: should return date formated`, () => {
@@ -173,15 +262,23 @@ describe('PoPageDynamicSearchComponent:', () => {
       expect(component['getFieldByProperty'](fields, fieldName)).toEqual(result);
     });
 
-    it(`onChangeDisclaimerGroup: should call 'changeDisclaimers.emit' if 'changeDisclaimersEnabled' is 'true'`, () => {
-      const disclaimers = [{ value: 'disclaimer' }];
+    it(`onChangeDisclaimerGroup: should call 'changeDisclaimers.emit', 'formatsFilterValuesToUpdateDisclaimers' and 'setFilters'
+    if 'changeDisclaimersEnabled' is 'true'`, () => {
+      const disclaimers = [{ label: 'City: Ontario', property: 'city', value: 'Ontario' }];
+      const formattedDisclaimersToEmitToAdvancedFilter = { city: 'Ontario' };
       component['changeDisclaimersEnabled'] = true;
 
       spyOn(component.changeDisclaimers, 'emit');
+      spyOn(component, <any>'formatsFilterValuesToUpdateDisclaimers').and.returnValue(
+        formattedDisclaimersToEmitToAdvancedFilter
+      );
+      spyOn(component, <any>'setFilters');
 
       component['onChangeDisclaimerGroup'](disclaimers);
 
       expect(component.changeDisclaimers.emit).toHaveBeenCalledWith(disclaimers);
+      expect(component['formatsFilterValuesToUpdateDisclaimers']).toHaveBeenCalledWith(disclaimers);
+      expect(component['setFilters']).toHaveBeenCalledWith(formattedDisclaimersToEmitToAdvancedFilter);
     });
 
     it(`onChangeDisclaimerGroup: should define 'changeDisclaimersEnable' to 'true' if 'changeDisclaimersEnable' is 'false'`, () => {
@@ -380,7 +477,8 @@ describe('PoPageDynamicSearchComponent:', () => {
               { label: 'Feature 1', url: '/new-feature1' },
               { label: 'Feature 3', url: '/new-feature3' }
             ],
-            filters: [{ property: 'filter1' }, { property: 'filter3' }]
+            filters: [{ property: 'filter1' }, { property: 'filter3' }],
+            keepFilters: true
           };
         };
 
@@ -396,6 +494,7 @@ describe('PoPageDynamicSearchComponent:', () => {
         expect(component.breadcrumb).toEqual({
           items: [{ label: 'Test' }, { label: 'Test2' }]
         });
+        expect(component.keepFilters).toBeTrue();
       }));
     });
   });
