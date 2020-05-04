@@ -144,7 +144,8 @@ describe('PoPageDynamicTableComponent:', () => {
               detail: '/new_datail',
               new: '/new'
             },
-            fields: [{ property: 'filter1' }, { property: 'filter3' }]
+            fields: [{ property: 'filter1' }, { property: 'filter3' }],
+            keepFilters: true
           };
         };
 
@@ -164,6 +165,10 @@ describe('PoPageDynamicTableComponent:', () => {
         expect(component.breadcrumb).toEqual({
           items: [{ label: 'Test' }, { label: 'Test2' }]
         });
+        expect(component.keepFilters).toBeTrue();
+
+        component.ngOnDestroy();
+        expect(component['subscriptions']['_subscriptions']).toBeNull();
       }));
 
       it('should configure properties based on the return of onload route', fakeAsync(() => {
@@ -219,6 +224,20 @@ describe('PoPageDynamicTableComponent:', () => {
 
       expect(component['loadData']).toHaveBeenCalled();
       expect(component['params']).toBe(filter);
+    });
+
+    it('onAdvancedSearch: should call `updateFilterValue` with filter if `keepFilters` is true', () => {
+      const filter = 'filterValue';
+      component.keepFilters = true;
+
+      spyOn(component, <any>'loadData').and.returnValue(EMPTY);
+      spyOn(component, <any>'updateFilterValue');
+
+      component.onAdvancedSearch(filter);
+
+      expect(component['loadData']).toHaveBeenCalled();
+      expect(component['params']).toBe(filter);
+      expect(component['updateFilterValue']).toHaveBeenCalledWith(filter);
     });
 
     it('onChangeDisclaimers: should call `onAdvancedSearch` with filter', () => {
@@ -885,6 +904,36 @@ describe('PoPageDynamicTableComponent:', () => {
       component.onSort(sortedColumn);
 
       expect(component['sortedColumn']).toEqual(expectedValue);
+    });
+
+    it('onAdvancedSearch: should call `updateFilterValue` with filter if `keepFilters` is true', () => {
+      const filter = 'filterValue';
+      component.keepFilters = true;
+
+      spyOn(component, <any>'loadData').and.returnValue(EMPTY);
+      spyOn(component, <any>'updateFilterValue');
+
+      component.onAdvancedSearch(filter);
+
+      expect(component['loadData']).toHaveBeenCalled();
+      expect(component['params']).toBe(filter);
+      expect(component['updateFilterValue']).toHaveBeenCalledWith(filter);
+    });
+
+    it('updateFilterValue: ', () => {
+      component.fields = [
+        { property: 'name', label: 'Name', filter: true, gridColumns: 6 },
+        { property: 'genre', label: 'Genre', filter: true, gridColumns: 6, duplicate: true }
+      ];
+      const expectedFields = [
+        { property: 'name', label: 'Name', filter: true, gridColumns: 6, initValue: 'Test' },
+        { property: 'genre', label: 'Genre', filter: true, gridColumns: 6, duplicate: true }
+      ];
+      const filter = { name: 'Test' };
+
+      component['updateFilterValue'](filter);
+
+      expect(component.fields).toEqual(expectedFields);
     });
   });
 });
