@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { PoPageDynamicTableActions } from './interfaces/po-page-dynamic-table-actions.interface';
 import { PoPageDynamicTableBeforeNew } from './interfaces/po-page-dynamic-table-before-new.interface';
+import { PoPageDynamicTableBeforeRemove } from './interfaces/po-page-dynamic-table-before-remove.interface';
 
 @Injectable({
   providedIn: 'root'
@@ -20,6 +21,20 @@ export class PoPageDynamicTableActionsService {
         return this.http.post<PoPageDynamicTableBeforeNew>(action, {}, { headers: this.headers });
       }
       return of(action());
+    }
+    return of({});
+  }
+
+  beforeRemove(
+    action?: PoPageDynamicTableActions['beforeRemove'],
+    id?: string,
+    resource?: any
+  ): Observable<PoPageDynamicTableBeforeRemove> {
+    if (action) {
+      if (typeof action === 'string') {
+        return this.http.post<PoPageDynamicTableBeforeNew>(action, { id, resource }, { headers: this.headers });
+      }
+      return of(action(id, resource));
     }
     return of({});
   }
