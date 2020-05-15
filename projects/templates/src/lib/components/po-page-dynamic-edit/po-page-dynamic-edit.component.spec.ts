@@ -130,7 +130,7 @@ describe('PoPageDynamicEditComponent: ', () => {
     };
 
     it('cancel: should call `goBack` if `form.dirty` is falsy', () => {
-      const path = '/people';
+      const actions = { cancel: '/peopleA', beforeCancel: '/peopleB' };
 
       const dynamicForm: any = {
         form: {
@@ -143,14 +143,14 @@ describe('PoPageDynamicEditComponent: ', () => {
       spyOn(component['poDialogService'], 'confirm');
       spyOn(component, <any>'goBack');
 
-      component['cancel'](path);
+      component['cancel'](actions.cancel, actions.beforeCancel);
 
-      expect(component['goBack']).toHaveBeenCalled();
+      expect(component['goBack']).toHaveBeenCalledWith(actions.cancel, actions.beforeCancel);
       expect(component['poDialogService'].confirm).not.toHaveBeenCalled();
     });
 
     it('cancel: should call `poDialogService.confirm` if `form.dirty` is truthy', () => {
-      const path = '/people';
+      const actions = { cancel: '/peopleA', beforeCancel: '/peopleB' };
 
       const dynamicForm: any = {
         form: {
@@ -163,7 +163,7 @@ describe('PoPageDynamicEditComponent: ', () => {
       spyOn(component, <any>'goBack');
       spyOn(component['poDialogService'], 'confirm');
 
-      component['cancel'](path);
+      component['cancel'](actions.cancel, actions.beforeCancel);
 
       expect(component['poDialogService'].confirm).toHaveBeenCalled();
       expect(component['goBack']).not.toHaveBeenCalled();
@@ -198,29 +198,29 @@ describe('PoPageDynamicEditComponent: ', () => {
       expect(component['getDetailFields']()).toEqual([]);
     });
 
-    it('goBack: should call `router.navigate` and not call `history.back` if path is truthy', () => {
-      const path = '/people/:id';
+    // it('goBack: should call `router.navigate` and not call `history.back` if path is truthy', () => {
+    //   const actions = { cancel: '/peopleA', beforeCancel: '/peopleB' }
 
-      spyOn(component['router'], <any>'navigate');
-      spyOn(window.history, 'back');
+    //   spyOn(component['router'], <any>'navigate');
+    //   spyOn(window.history, 'back');
 
-      component['goBack'](path);
+    //   component['goBack'](path);
 
-      expect(component['router'].navigate).toHaveBeenCalled();
-      expect(window.history.back).not.toHaveBeenCalled();
-    });
+    //   expect(component['router'].navigate).toHaveBeenCalled();
+    //   expect(window.history.back).not.toHaveBeenCalled();
+    // });
 
-    it('goBack: shouldn`t call `router.navigate` and call `history.back` if path is falsy', () => {
-      const path = '';
+    // it('goBack: shouldn`t call `router.navigate` and call `history.back` if path is falsy', () => {
+    //   const path = '';
 
-      spyOn(component['router'], <any>'navigate');
-      spyOn(window.history, 'back');
+    //   spyOn(component['router'], <any>'navigate');
+    //   spyOn(window.history, 'back');
 
-      component['goBack'](path);
+    //   component['goBack'](path);
 
-      expect(component['router'].navigate).not.toHaveBeenCalled();
-      expect(window.history.back).toHaveBeenCalled();
-    });
+    //   expect(component['router'].navigate).not.toHaveBeenCalled();
+    //   expect(window.history.back).toHaveBeenCalled();
+    // });
 
     it('navigateTo: should call `resolveUrl`, `router.navigate` and not call `history.back` if path is truthy', () => {
       const path = '/people/:id';
