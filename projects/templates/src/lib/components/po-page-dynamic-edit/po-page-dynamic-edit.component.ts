@@ -24,6 +24,7 @@ import { PoPageCustomizationService } from '../../services/po-page-customization
 import { PoPageDynamicEditMetadata } from './interfaces/po-page-dynamic-edit-metadata.interface';
 import { PoPageDynamicOptionsSchema } from '../../services/po-page-customization/po-page-dynamic-options.interface';
 import { PoPageDynamicEditActionsService } from './po-page-dynamic-edit-actions.service';
+import { PoPageDynamicEditBeforeCancel } from './interfaces/po-page-dynamic-edit-before-cancel.interface';
 import { PoPageDynamicEditBeforeSave } from './interfaces/po-page-dynamic-edit-before-save.interface';
 
 type UrlOrPoCustomizationFunction = string | (() => PoPageDynamicEditOptions);
@@ -414,15 +415,18 @@ export class PoPageDynamicEditComponent implements OnInit, OnDestroy {
     this.gridDetail.insertRow();
   }
 
-  private cancel(path) {
+  private cancel(
+    actionCancel: PoPageDynamicEditActions['cancel'],
+    actionBeforeCancel: PoPageDynamicEditActions['beforeCancel']
+  ) {
     if (this.dynamicForm && this.dynamicForm.form.dirty) {
       this.poDialogService.confirm({
         message: this.literals.cancelConfirmMessage,
         title: this.literals.pageActionCancel,
-        confirm: this.goBack.bind(this, path)
+        confirm: this.goBack.bind(this, actionCancel, actionBeforeCancel)
       });
     } else {
-      this.goBack(path);
+      this.goBack(actionCancel, actionBeforeCancel);
     }
   }
 
@@ -432,11 +436,36 @@ export class PoPageDynamicEditComponent implements OnInit, OnDestroy {
     return util.valuesFromObject(keys).join('|');
   }
 
-  private goBack(path) {
-    if (path) {
-      this.router.navigate([path]);
-    } else {
-      window.history.back();
+  private goBack(
+    actionCancel: PoPageDynamicEditActions['cancel'],
+    actionBeforeCancel: PoPageDynamicEditActions['beforeCancel']
+  ) {
+    this.subscriptions.push(
+      this.poPageDynamicEditActionsService
+        .beforeCancel(actionBeforeCancel)
+        .subscribe((beforeCancelResult: PoPageDynamicEditBeforeCancel) => {
+          this.executeBackAction(actionCancel, beforeCancelResult?.allowAction, beforeCancelResult?.newUrl);
+        })
+    );
+  }
+
+  private executeBackAction(
+    actionCancel: PoPageDynamicEditActions['cancel'],
+    allowAction: PoPageDynamicEditBeforeCancel['allowAction'],
+    newUrl: PoPageDynamicEditBeforeCancel['newUrl']
+  ) {
+    const isAllowedAction = typeof allowAction === 'boolean' ? allowAction : true;
+
+    if (isAllowedAction) {
+      if (actionCancel === undefined || typeof actionCancel === 'boolean') {
+        return window.history.back();
+      }
+
+      if (typeof actionCancel === 'string' || newUrl) {
+        return this.router.navigate([newUrl || actionCancel]);
+      }
+
+      return actionCancel();
     }
   }
 
@@ -643,7 +672,10 @@ export class PoPageDynamicEditComponent implements OnInit, OnDestroy {
     }
 
     if (actions.cancel === undefined || actions.cancel) {
-      pageActions.push({ label: this.literals.pageActionCancel, action: this.cancel.bind(this, actions.cancel) });
+      pageActions.push({
+        label: this.literals.pageActionCancel,
+        action: this.cancel.bind(this, actions.cancel, this.actions.beforeCancel)
+      });
     }
 
     return pageActions;
