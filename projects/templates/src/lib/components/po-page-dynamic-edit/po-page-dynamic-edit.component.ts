@@ -1,8 +1,8 @@
 import { Component, Input, OnInit, ViewChild, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import { Observable, concat, Subscription, EMPTY, throwError } from 'rxjs';
-import { tap, catchError, switchMap } from 'rxjs/operators';
+import { Observable, concat, of, Subscription, EMPTY, throwError } from 'rxjs';
+import { tap, catchError, map, switchMap } from 'rxjs/operators';
 
 import {
   PoBreadcrumb,
@@ -451,8 +451,8 @@ export class PoPageDynamicEditComponent implements OnInit, OnDestroy {
 
   private executeBackAction(
     actionCancel: PoPageDynamicEditActions['cancel'],
-    allowAction: PoPageDynamicEditBeforeCancel['allowAction'],
-    newUrl: PoPageDynamicEditBeforeCancel['newUrl']
+    allowAction?: PoPageDynamicEditBeforeCancel['allowAction'],
+    newUrl?: PoPageDynamicEditBeforeCancel['newUrl']
   ) {
     const isAllowedAction = typeof allowAction === 'boolean' ? allowAction : true;
 
@@ -570,30 +570,36 @@ export class PoPageDynamicEditComponent implements OnInit, OnDestroy {
   }
 
   private save(saveAction: PoPageDynamicEditActions['save']) {
-    this.poPageDynamicEditActionsService
-      .beforeSave(this.actions.beforeSave, { ...this.model })
-      .subscribe((returnBeforeSave: PoPageDynamicEditBeforeSave) => {
-        const newAction = returnBeforeSave?.newUrl ?? saveAction;
-        const allowAction = returnBeforeSave?.allowAction ?? true;
+    this.subscriptions.push(
+      this.poPageDynamicEditActionsService
+        .beforeSave(this.actions.beforeSave, { ...this.model })
+        .pipe(
+          switchMap(returnBeforeSave => {
+            const newAction = returnBeforeSave?.newUrl ?? saveAction;
+            const allowAction = returnBeforeSave?.allowAction ?? true;
 
-        this.updateModel(returnBeforeSave?.resource);
+            this.updateModel(returnBeforeSave?.resource);
 
-        if (!allowAction) {
-          return;
-        }
+            if (!allowAction) {
+              return of({});
+            }
 
-        if (typeof newAction === 'string') {
-          this.executeSave(newAction);
-        } else {
-          newAction({ ...this.model });
-        }
-      });
+            if (typeof newAction === 'string') {
+              return this.executeSave(newAction);
+            } else {
+              newAction({ ...this.model });
+              return EMPTY;
+            }
+          })
+        )
+        .subscribe()
+    );
   }
 
   private executeSave(saveAction: string) {
     if (this.dynamicForm.form.invalid) {
       this.poNotification.warning(this.literals.saveNotificationWarning);
-      return;
+      return EMPTY;
     }
 
     const paramId = this.activatedRoute.snapshot.params['id'];
@@ -604,10 +610,12 @@ export class PoPageDynamicEditComponent implements OnInit, OnDestroy {
 
     const msgSucess = paramId ? this.literals.saveNotificationSuccessUpdate : this.literals.saveNotificationSuccessSave;
 
-    saveOperation.toPromise().then(() => {
-      this.poNotification.success(msgSucess);
-      this.navigateTo(saveAction);
-    });
+    return saveOperation.pipe(
+      map(() => {
+        this.poNotification.success(msgSucess);
+        this.navigateTo(saveAction);
+      })
+    );
   }
 
   private updateModel(newResource: any) {

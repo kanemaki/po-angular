@@ -198,29 +198,134 @@ describe('PoPageDynamicEditComponent: ', () => {
       expect(component['getDetailFields']()).toEqual([]);
     });
 
-    // it('goBack: should call `router.navigate` and not call `history.back` if path is truthy', () => {
-    //   const actions = { cancel: '/peopleA', beforeCancel: '/peopleB' }
+    describe('goBack', () => {
+      it('should call `executeBackAtion` passing `action.cancel` as param if beforeBack returns null', () => {
+        const actions = { cancel: '/people-list', beforeCancel: '/people-list-b' };
 
-    //   spyOn(component['router'], <any>'navigate');
-    //   spyOn(window.history, 'back');
+        const spybeforeCancel = spyOn(component['poPageDynamicEditActionsService'], 'beforeCancel').and.returnValue(
+          of(null)
+        );
+        const spyExecuteBackAction = spyOn(component, <any>'executeBackAction');
 
-    //   component['goBack'](path);
+        component['goBack'](actions.cancel, actions.beforeCancel);
 
-    //   expect(component['router'].navigate).toHaveBeenCalled();
-    //   expect(window.history.back).not.toHaveBeenCalled();
-    // });
+        expect(spybeforeCancel).toHaveBeenCalled();
+        expect(spyExecuteBackAction).toHaveBeenCalledWith(actions.cancel, undefined, undefined);
+      });
 
-    // it('goBack: shouldn`t call `router.navigate` and call `history.back` if path is falsy', () => {
-    //   const path = '';
+      it('should call `executeBackAction` passing action.cancel, newUrl and allowAction as param values', () => {
+        const actions = { cancel: '/people-list', beforeCancel: '/people-list-b' };
+        const newUrl = '/newUrl';
+        const allowAction = false;
 
-    //   spyOn(component['router'], <any>'navigate');
-    //   spyOn(window.history, 'back');
+        const spybeforeCancel = spyOn(component['poPageDynamicEditActionsService'], 'beforeCancel').and.returnValue(
+          of({ allowAction, newUrl })
+        );
+        const spyExecuteBackAction = spyOn(component, <any>'executeBackAction');
 
-    //   component['goBack'](path);
+        component['goBack'](actions.cancel, actions.beforeCancel);
 
-    //   expect(component['router'].navigate).not.toHaveBeenCalled();
-    //   expect(window.history.back).toHaveBeenCalled();
-    // });
+        expect(spybeforeCancel).toHaveBeenCalled();
+        expect(spyExecuteBackAction).toHaveBeenCalledWith(actions.cancel, allowAction, newUrl);
+      });
+    });
+
+    describe('executeBackAction', () => {
+      it('should call `history.back` if action.cancel is a boolean type', () => {
+        const actionCancel = true;
+
+        const spyHistoryBack = spyOn(window.history, 'back');
+
+        component['executeBackAction'](actionCancel);
+
+        expect(spyHistoryBack).toHaveBeenCalled();
+      });
+
+      it('should call `history.back` if action.cancel is undefined', () => {
+        const actionCancel = undefined;
+
+        const spyHistoryBack = spyOn(window.history, 'back');
+
+        component['executeBackAction'](actionCancel);
+
+        expect(spyHistoryBack).toHaveBeenCalled();
+      });
+
+      it('should call `router.navigate` if action.cancel is a string type', () => {
+        const actionCancel = '/list';
+
+        const spyNavigate = spyOn(component['router'], <any>'navigate');
+
+        component['executeBackAction'](actionCancel);
+
+        expect(spyNavigate).toHaveBeenCalledWith([actionCancel]);
+      });
+
+      it('should call the function from action.cancel', () => {
+        const canceFn = {
+          fn: () => {}
+        };
+
+        const spyCancelFn = spyOn(canceFn, 'fn');
+
+        component['executeBackAction'](canceFn.fn);
+
+        expect(spyCancelFn).toHaveBeenCalled();
+      });
+
+      it('should call `router.navigate` passing `newUrl` as value if allowAction is true', () => {
+        const actionCancel = '/list';
+        const newUrl = '/new-list';
+        const allowAction = true;
+
+        const spyNavigate = spyOn(component['router'], <any>'navigate');
+
+        component['executeBackAction'](actionCancel, allowAction, newUrl);
+
+        expect(spyNavigate).toHaveBeenCalledWith([newUrl]);
+      });
+
+      it('should call `router.navigate` passing `newUrl` as value if allowAction is null', () => {
+        const actionCancel = '/list';
+        const newUrl = '/new-list';
+        const allowAction = null;
+
+        const spyNavigate = spyOn(component['router'], <any>'navigate');
+
+        component['executeBackAction'](actionCancel, allowAction, newUrl);
+
+        expect(spyNavigate).toHaveBeenCalledWith([newUrl]);
+      });
+
+      it('should call `router.navigate` passing `newUrl` as value if allowAction is undefined', () => {
+        const actionCancel = '/list';
+        const newUrl = '/new-list';
+        const allowAction = undefined;
+
+        const spyNavigate = spyOn(component['router'], <any>'navigate');
+
+        component['executeBackAction'](actionCancel, allowAction, newUrl);
+
+        expect(spyNavigate).toHaveBeenCalledWith([newUrl]);
+      });
+
+      it('shouldn`t call anything if `allowAction` is false', () => {
+        const actionCancel = {
+          fn: () => {}
+        };
+        const allowAction = false;
+
+        const spyNavigate = spyOn(component['router'], <any>'navigate');
+        const spyHistoryBack = spyOn(window.history, 'back');
+        const spyBackFn = spyOn(actionCancel, 'fn');
+
+        component['executeBackAction'](actionCancel.fn, allowAction);
+
+        expect(spyNavigate).not.toHaveBeenCalled();
+        expect(spyHistoryBack).not.toHaveBeenCalled();
+        expect(spyBackFn).not.toHaveBeenCalled();
+      });
+    });
 
     it('navigateTo: should call `resolveUrl`, `router.navigate` and not call `history.back` if path is truthy', () => {
       const path = '/people/:id';
@@ -686,7 +791,7 @@ describe('PoPageDynamicEditComponent: ', () => {
       const returnBeforeSave: PoPageDynamicEditBeforeSave = { allowAction: true };
 
       spyOn(component['poPageDynamicEditActionsService'], 'beforeSave').and.returnValue(of(returnBeforeSave));
-      spyOn(component, <any>'executeSave');
+      spyOn(component, <any>'executeSave').and.returnValue(of({}));
       spyOn(component, <any>'updateModel');
 
       component['save']('testSave/');
@@ -698,7 +803,7 @@ describe('PoPageDynamicEditComponent: ', () => {
       const returnBeforeSave: PoPageDynamicEditBeforeSave = { allowAction: undefined };
 
       spyOn(component['poPageDynamicEditActionsService'], 'beforeSave').and.returnValue(of(returnBeforeSave));
-      spyOn(component, <any>'executeSave');
+      spyOn(component, <any>'executeSave').and.returnValue(of({}));
       spyOn(component, <any>'updateModel');
 
       component['save']('testSave/');
@@ -710,7 +815,7 @@ describe('PoPageDynamicEditComponent: ', () => {
       const returnBeforeSave: PoPageDynamicEditBeforeSave = { allowAction: null };
 
       spyOn(component['poPageDynamicEditActionsService'], 'beforeSave').and.returnValue(of(returnBeforeSave));
-      spyOn(component, <any>'executeSave');
+      spyOn(component, <any>'executeSave').and.returnValue(of({}));
       spyOn(component, <any>'updateModel');
 
       component['save']('testSave/');
@@ -722,7 +827,7 @@ describe('PoPageDynamicEditComponent: ', () => {
       const returnBeforeSave: PoPageDynamicEditBeforeSave = { newUrl: 'newUrl' };
 
       spyOn(component['poPageDynamicEditActionsService'], 'beforeSave').and.returnValue(of(returnBeforeSave));
-      spyOn(component, <any>'executeSave');
+      spyOn(component, <any>'executeSave').and.returnValue(of({}));
       spyOn(component, <any>'updateModel');
 
       component['save']('testSave/');
@@ -735,7 +840,7 @@ describe('PoPageDynamicEditComponent: ', () => {
       const saveAction = 'testSave/';
 
       spyOn(component['poPageDynamicEditActionsService'], 'beforeSave').and.returnValue(of(returnBeforeSave));
-      spyOn(component, <any>'executeSave');
+      spyOn(component, <any>'executeSave').and.returnValue(of({}));
       spyOn(component, <any>'updateModel');
 
       component['save'](saveAction);
@@ -748,7 +853,7 @@ describe('PoPageDynamicEditComponent: ', () => {
       const saveAction = 'testSave/';
 
       spyOn(component['poPageDynamicEditActionsService'], 'beforeSave').and.returnValue(of(returnBeforeSave));
-      spyOn(component, <any>'executeSave');
+      spyOn(component, <any>'executeSave').and.returnValue(of({}));
       spyOn(component, <any>'updateModel');
 
       component['save'](saveAction);
@@ -761,7 +866,7 @@ describe('PoPageDynamicEditComponent: ', () => {
       const saveAction = 'testSave/';
 
       spyOn(component['poPageDynamicEditActionsService'], 'beforeSave').and.returnValue(of(returnBeforeSave));
-      spyOn(component, <any>'executeSave');
+      spyOn(component, <any>'executeSave').and.returnValue(of({}));
       spyOn(component, <any>'updateModel');
 
       component['save'](saveAction);
@@ -852,25 +957,24 @@ describe('PoPageDynamicEditComponent: ', () => {
       component['activatedRoute'] = activatedRoute;
       component.model = Object.assign({}, model);
 
-      spyOn(component['poPageDynamicService'], 'updateResource').and.returnValue(EMPTY);
+      spyOn(component['poPageDynamicService'], 'updateResource').and.returnValue(of({}));
       spyOn(component['poNotification'], 'success');
       spyOn(component, <any>'navigateTo');
 
       spyOn(component['poPageDynamicService'], 'createResource');
       spyOn(component['poNotification'], 'warning');
 
-      component['executeSave'](path);
-
+      component['executeSave'](path).subscribe(() => {
+        expect(component['navigateTo']).toHaveBeenCalledWith(path);
+        expect(component['poNotification'].success).toHaveBeenCalledWith(
+          component.literals.saveNotificationSuccessUpdate
+        );
+        expect(component['poPageDynamicService'].createResource).not.toHaveBeenCalled();
+        expect(component['poPageDynamicService'].updateResource).toHaveBeenCalledWith(id, model);
+      });
       tick();
 
       expect(component['poNotification'].warning).not.toHaveBeenCalled();
-      expect(component['poPageDynamicService'].createResource).not.toHaveBeenCalled();
-
-      expect(component['navigateTo']).toHaveBeenCalledWith(path);
-      expect(component['poNotification'].success).toHaveBeenCalledWith(
-        component.literals.saveNotificationSuccessUpdate
-      );
-      expect(component['poPageDynamicService'].updateResource).toHaveBeenCalledWith(id, model);
     }));
 
     it('executeSave: should call `createResource`, `poNotification.success` and `navigateTo` if `params.id` is truthy', fakeAsync(() => {
@@ -888,23 +992,25 @@ describe('PoPageDynamicEditComponent: ', () => {
       component['activatedRoute'] = activatedRoute;
       component.model = Object.assign({}, model);
 
-      spyOn(component['poPageDynamicService'], 'createResource').and.returnValue(EMPTY);
+      spyOn(component['poPageDynamicService'], 'createResource').and.returnValue(of({}));
       spyOn(component['poNotification'], 'success');
       spyOn(component, <any>'navigateTo');
 
       spyOn(component['poPageDynamicService'], 'updateResource');
       spyOn(component['poNotification'], 'warning');
 
-      component['executeSave'](path);
+      component['executeSave'](path).subscribe(() => {
+        expect(component['navigateTo']).toHaveBeenCalledWith(path);
+        expect(component['poNotification'].success).toHaveBeenCalledWith(
+          component.literals.saveNotificationSuccessSave
+        );
+        expect(component['poPageDynamicService'].updateResource).not.toHaveBeenCalled();
+        expect(component['poPageDynamicService'].createResource).toHaveBeenCalledWith(model);
+      });
 
       tick();
 
       expect(component['poNotification'].warning).not.toHaveBeenCalled();
-      expect(component['poPageDynamicService'].updateResource).not.toHaveBeenCalled();
-
-      expect(component['navigateTo']).toHaveBeenCalledWith(path);
-      expect(component['poNotification'].success).toHaveBeenCalledWith(component.literals.saveNotificationSuccessSave);
-      expect(component['poPageDynamicService'].createResource).toHaveBeenCalledWith(model);
     }));
 
     it('getKeysByFields: should return array with only key fields', () => {
